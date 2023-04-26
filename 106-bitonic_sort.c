@@ -1,80 +1,86 @@
 #include "sort.h"
 
 /**
- * get_max - a function that gets the maximum value in an array of integers.
- * @array: array of integers.
- * @size: size of the array.
- *
- * Return: maximum integer in the array.
+ * swap_ints - a function that swaps two integers in an array.
+ * @a: first integer to swap.
+ * @b: second integer to swap.
  */
-int get_max(int *array, int size)
+void swap_ints(int *a, int *b)
 {
-	int max, x;
+	int tmp;
 
-	for (max = array[0], x = 1; x < size; x++)
-	{
-		if (array[x] > max)
-			max = array[x];
-	}
-
-	return (max);
+	tmp = *a;
+	*a = *b;
+	*b = tmp;
 }
 
 /**
- * radix_counting_sort - a functiont that sorts the significant digits of an
- * array of integers in ascending order using the counting sort algorithm.
+ * bitonic_merge - a function that sorts a bitonic sequence
+ * inside an array of integers.
  * @array: array of integers.
  * @size: size of the array.
- * @sig: significant digit to sort on.
- * @buff: buffer to store the sorted array.
+ * @start: starting index of the sequence in array to sort.
+ * @seq: size of the sequence to sort.
+ * @flow: direction to sort in.
  */
-void radix_counting_sort(int *array, size_t size, int sig, int *buff)
+void bitonic_merge(int *array, size_t size, size_t start, size_t seq,
+		char flow)
 {
-	int count[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	size_t x;
+	size_t x, jump = seq / 2;
 
-	for (x = 0; x < size; x++)
-		count[(array[x] / sig) % 10] += 1;
-
-	for (x = 0; x < 10; x++)
-		count[x] += count[x - 1];
-
-	for (x = size - 1; (int)x >= 0; x--)
+	if (seq > 1)
 	{
-		buff[count[(array[x] / sig) % 10] - 1] = array[x];
-		count[(array[x] / sig) % 10] -= 1;
+		for (x = start; x < start + jump; x++)
+		{
+			if ((flow == UP && array[x] > array[x + jump]) ||
+			    (flow == DOWN && array[x] < array[x + jump]))
+				swap_ints(array + x, array + x + jump);
+		}
+		bitonic_merge(array, size, start, jump, flow);
+		bitonic_merge(array, size, start + jump, jump, flow);
 	}
-
-	for (x = 0; x < size; x++)
-		array[x] = buff[x];
 }
 
 /**
- * radix_sort - a function that sorts an array of integers in ascending
- * order using the radix sort algorithm.
+ * bitonic_seq - a function that converts an array of integers into a
+ * bitonic sequence.
+ * @array: array of integers.
+ * @size: size of the array.
+ * @start: starting index of a block of the building bitonic sequence.
+ * @seq: size of a block of the building bitonic sequence.
+ * @flow: direction to sort the bitonic sequence block in.
+ */
+void bitonic_seq(int *array, size_t size, size_t start, size_t seq, char flow)
+{
+	size_t cut = seq / 2;
+	char *str = (flow == UP) ? "UP" : "DOWN";
+
+	if (seq > 1)
+	{
+		printf("Merging [%lu/%lu] (%s):\n", seq, size, str);
+		print_array(array + start, seq);
+
+		bitonic_seq(array, size, start, cut, UP);
+		bitonic_seq(array, size, start + cut, cut, DOWN);
+		bitonic_merge(array, size, start, seq, flow);
+
+		printf("Result [%lu/%lu] (%s):\n", seq, size, str);
+		print_array(array + start, seq);
+	}
+}
+
+/**
+ * bitonic_sort - a function that sorts an array of integers in
+ * ascending order using the bitonic sort algorithm.
  * @array: array of integers.
  * @size: size of the array.
  *
- * Description: implements the LSD radix sort algorithm.
- * Prints the array after each significant digit increase.
+ * Description: prints the array after each swap.
  */
-void radix_sort(int *array, size_t size)
+void bitonic_sort(int *array, size_t size)
 {
-	int max, sig, *buff;
-
 	if (array == NULL || size < 2)
 		return;
 
-	buff = malloc(sizeof(int) * size);
-	if (buff == NULL)
-		return;
-
-	max = get_max(array, size);
-	for (sig = 1; max / sig > 0; sig *= 10)
-	{
-		radix_counting_sort(array, size, sig, buff);
-		print_array(array, size);
-	}
-
-	free(buff);
+	bitonic_seq(array, size, 0, size, UP);
 }
